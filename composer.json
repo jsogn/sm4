@@ -1,10 +1,11 @@
 {
   "name": "jiangwang/one-sm",
   "type": "library",
-  "description": "国密sm3",
+  "description": "国密sm3,sm4",
   "keywords": [
     "php",
-    "sm3"
+    "sm3",
+    "sm4"
   ],
   "license": "Apache-2.0",
   "authors": [
