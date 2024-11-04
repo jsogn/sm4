@@ -13,7 +13,7 @@
 ## 安装
 
 ```shell 
-composer require lizhichao/one-sm
+composer require jiangwang/one-sm
 ``` 
 
 ## SM3签名
@@ -45,10 +45,7 @@ SM3-PHP:4901d7181a1024b8c0f59b8d3c5c6d96b4b707ad10e8ebc8ece5dc49364a3067
 openssl time:6.3741207122803ms
 one-sm3 time:8.1770420074463ms
 SM3-PHP time:1738.5928630829ms
-
 ```
-[测试代码bench.php](https://github.com/lizhichao/sm/blob/master/bench.php)
-
 
 ## SM4加密
 
@@ -92,9 +89,6 @@ var_dump(md5($d)===$sign);
 
 ```
 
-## 我的其他仓库
-
-* [一个极简高性能php框架，支持[swoole | php-fpm ]环境](https://github.com/lizhichao/one)
-* [clickhouse tcp 客户端](https://github.com/lizhichao/one-ck)
-* [中文分词](https://github.com/lizhichao/VicWord)
-* [nsq客户端](https://github.com/lizhichao/one-nsq)
+## 感谢
+- https://github.com/lizhichao/sm
+- http://67.209.177.13/blog/2021/2021-11-23.html

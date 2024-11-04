@@ -1,9 +1,9 @@
 <?php
-
+/**
+ *  source: https://github.com/lizhichao/sm
+ */
 
 namespace OneSm;
-
-
 class Sm4
 {
     private $ck = [
@@ -57,12 +57,6 @@ class Sm4
         $this->crk($key);
     }
 
-    private function dd(&$data)
-    {
-        $n    = strlen($data) % $this->len;
-        $data = $data . str_repeat($this->b, $n);
-    }
-
     private function ck16($str)
     {
         if (strlen($str) !== $this->len) {
@@ -70,21 +64,34 @@ class Sm4
         }
     }
 
-    private function add($v)
+    private function crk($key)
     {
-        $arr = unpack('N*', $v);
-        $max = 0xffffffff;
-        $j   = 1;
-        for ($i = 4; $i > 0; $i--) {
-            if ($arr[$i] > $max - $j) {
-                $j       = 1;
-                $arr[$i] = 0;
-            } else {
-                $arr[$i] += $j;
-                break;
-            }
+        $keys = array_values(unpack('N*', $key));
+        $keys = [
+            $keys[0] ^ $this->fk[0],
+            $keys[1] ^ $this->fk[1],
+            $keys[2] ^ $this->fk[2],
+            $keys[3] ^ $this->fk[3]
+        ];
+        for ($i = 0; $i < 32; $i++) {
+            $this->rk[] = $keys[] = $keys[$i] ^ $this->t1($keys[$i + 1] ^ $keys[$i + 2] ^ $keys[$i + 3] ^ $this->ck[$i]);
         }
-        return pack('N*', ...$arr);
+    }
+
+    private function t1($n)
+    {
+        $b = $this->s($n);
+        return $b ^ $this->lm($b, 13) ^ $this->lm($b, 23);
+    }
+
+    private function s($n)
+    {
+        return $this->Sbox[($n & 0xff)] | $this->Sbox[(($n >> 8) & 0xff)] << 8 | $this->Sbox[(($n >> 16) & 0xff)] << 16 | $this->Sbox[(($n >> 24) & 0xff)] << 24;
+    }
+
+    private function lm($a, $n)
+    {
+        return ($a >> (32 - $n) | (($a << $n) & 0xffffffff));
     }
 
     /**
@@ -122,6 +129,61 @@ class Sm4
         return $r;
     }
 
+    private function dd(&$data)
+    {
+        $n    = $this->len - (strlen($data) % $this->len);
+        $data = $data . str_repeat(chr($n), $n);
+    }
+
+    private function encode($ar, &$r)
+    {
+        for ($i = 0; $i < 32; $i++) {
+            $ar[$i + 4] = $this->f($ar[$i], $ar[$i + 1], $ar[$i + 2], $ar[$i + 3], $this->rk[$i]);
+        }
+        $r[] = $ar[35];
+        $r[] = $ar[34];
+        $r[] = $ar[33];
+        $r[] = $ar[32];
+    }
+
+    private function f($x0, $x1, $x2, $x3, $r)
+    {
+        return $x0 ^ $this->t($x1 ^ $x2 ^ $x3 ^ $r);
+    }
+
+    private function t($n)
+    {
+        $b = $this->s($n);
+        return $b ^ $this->lm($b, 2) ^ $this->lm($b, 10) ^ $this->lm($b, 18) ^ $this->lm($b, 24);
+    }
+
+    private function add($v)
+    {
+        $arr = unpack('N*', $v);
+        $max = 0xffffffff;
+        $j   = 1;
+        for ($i = 4; $i > 0; $i--) {
+            if ($arr[$i] > $max - $j) {
+                $j       = 1;
+                $arr[$i] = 0;
+            } else {
+                $arr[$i] += $j;
+                break;
+            }
+        }
+        return pack('N*', ...$arr);
+    }
+
+    /**
+     * @param string $str 加密字符串
+     * @param string $iv 初始化字符串16位
+     * @return string
+     * @throws \Exception
+     */
+    public function deDataOfb($str, $iv)
+    {
+        return $this->enDataOfb($str, $iv);
+    }
 
     /**
      * @param string $str 加密字符串
@@ -144,17 +206,6 @@ class Sm4
             $r  .= $s1;
         }
         return $r;
-    }
-
-    /**
-     * @param string $str 加密字符串
-     * @param string $iv 初始化字符串16位
-     * @return string
-     * @throws \Exception
-     */
-    public function deDataOfb($str, $iv)
-    {
-        return $this->enDataOfb($str, $iv);
     }
 
     /**
@@ -204,7 +255,6 @@ class Sm4
         return $r;
     }
 
-
     /**
      * @param string $str 加密字符串
      * @param string $iv 初始化字符串16位
@@ -252,6 +302,16 @@ class Sm4
         return $r;
     }
 
+    private function decode($ar, &$r)
+    {
+        for ($i = 0; $i < 32; $i++) {
+            $ar[$i + 4] = $this->f($ar[$i], $ar[$i + 1], $ar[$i + 2], $ar[$i + 3], $this->rk[31 - $i]);
+        }
+        $r[] = $ar[35];
+        $r[] = $ar[34];
+        $r[] = $ar[33];
+        $r[] = $ar[32];
+    }
 
     /**
      * @param string $str 加密字符串
@@ -274,76 +334,21 @@ class Sm4
      */
     public function deDataEcb($str)
     {
-        $r = [];
-        $this->dd($str);
+        $r  = [];
         $ar = unpack('N*', $str);
         do {
             $this->decode([current($ar), next($ar), next($ar), next($ar)], $r);
         } while (next($ar));
-        return pack('N*', ...$r);
+        $rs = pack('N*', ...$r);
+
+        return $this->udd($rs);
     }
 
-    private function encode($ar, &$r)
+    private function udd(&$data)
     {
-        for ($i = 0; $i < 32; $i++) {
-            $ar[$i + 4] = $this->f($ar[$i], $ar[$i + 1], $ar[$i + 2], $ar[$i + 3], $this->rk[$i]);
-        }
-        $r[] = $ar[35];
-        $r[] = $ar[34];
-        $r[] = $ar[33];
-        $r[] = $ar[32];
-    }
-
-    private function decode($ar, &$r)
-    {
-        for ($i = 0; $i < 32; $i++) {
-            $ar[$i + 4] = $this->f($ar[$i], $ar[$i + 1], $ar[$i + 2], $ar[$i + 3], $this->rk[31 - $i]);
-        }
-        $r[] = $ar[35];
-        $r[] = $ar[34];
-        $r[] = $ar[33];
-        $r[] = $ar[32];
-    }
-
-    private function crk($key)
-    {
-        $keys = array_values(unpack('N*', $key));
-        $keys = [
-            $keys[0] ^ $this->fk[0],
-            $keys[1] ^ $this->fk[1],
-            $keys[2] ^ $this->fk[2],
-            $keys[3] ^ $this->fk[3]
-        ];
-        for ($i = 0; $i < 32; $i++) {
-            $this->rk[] = $keys[] = $keys[$i] ^ $this->t1($keys[$i + 1] ^ $keys[$i + 2] ^ $keys[$i + 3] ^ $this->ck[$i]);
-        }
-    }
-
-    private function lm($a, $n)
-    {
-        return ($a >> (32 - $n) | (($a << $n) & 0xffffffff));
-    }
-
-    private function f($x0, $x1, $x2, $x3, $r)
-    {
-        return $x0 ^ $this->t($x1 ^ $x2 ^ $x3 ^ $r);
-    }
-
-    private function s($n)
-    {
-        return $this->Sbox[($n & 0xff)] | $this->Sbox[(($n >> 8) & 0xff)] << 8 | $this->Sbox[(($n >> 16) & 0xff)] << 16 | $this->Sbox[(($n >> 24) & 0xff)] << 24;
-    }
-
-    private function t($n)
-    {
-        $b = $this->s($n);
-        return $b ^ $this->lm($b, 2) ^ $this->lm($b, 10) ^ $this->lm($b, 18) ^ $this->lm($b, 24);
-    }
-
-    private function t1($n)
-    {
-        $b = $this->s($n);
-        return $b ^ $this->lm($b, 13) ^ $this->lm($b, 23);
+        $n    = ord($data[strlen($data) - 1]);
+        $data = substr($data, 0, -1 * $n);
+        return $data;
     }
 
 

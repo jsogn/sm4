@@ -1,5 +1,5 @@
 {
-  "name": "lizhichao/one-sm",
+  "name": "jiangwang/one-sm",
   "type": "library",
   "description": "国密sm3",
   "keywords": [
@@ -9,8 +9,8 @@
   "license": "Apache-2.0",
   "authors": [
     {
-      "name": "tanszhe",
-      "email": "1018595261@qq.com"
+      "name": "jiangwang",
+      "email": "jbanxian@gmail.com"
     }
   ],
   "require": {
